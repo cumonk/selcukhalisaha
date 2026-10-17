@@ -201,7 +201,7 @@ td.hl,th.hl{background:var(--pitch-soft); font-weight:700}
 <script>
 (function(){
 'use strict';
-var KEY='halisaha-defteri-v1';
+var BIN_URL='https://api.npoint.io/2f0a4a1356fa7b1d3d88';
 var POS={K:'Kaleci',D:'Defans',O:'Orta saha',F:'Forvet'};
 var TEAM={A:'Turuncu',B:'Mavi'};
 
@@ -210,7 +210,6 @@ function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&am
 function clamp(x,a,b){return Math.min(b,Math.max(a,x));}
 function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function fmtDate(s){var p=s.split('-').map(Number);return new Date(p[0],p[1]-1,p[2]).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});}
-/* hafta takvimi: her hafta bir Salı günü */
 var ORD=['Birinci','İkinci','Üçüncü','Dördüncü','Beşinci','Altıncı','Yedinci','Sekizinci','Dokuzuncu','Onuncu',
   'On birinci','On ikinci','On üçüncü','On dördüncü','On beşinci','On altıncı','On yedinci','On sekizinci','On dokuzuncu','Yirminci'];
 function weekName(n){return n<=ORD.length?ORD[n-1]+' hafta':n+'. hafta';}
@@ -230,30 +229,32 @@ function mkey(m){return m.week?weekDate(m.week):m.date;}
 function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
 
 /* ---------- veri ---------- */
-function mkMatch(id,date,a,b,goals,assists,mvp,players){
-  function sum(ids){return ids.reduce(function(s,i){return s+(goals[i]||0);},0);}
-  var names={};a.concat(b).forEach(function(i){names[i]=players.filter(function(p){return p.id===i;})[0].name;});
-  return {id:id,date:date,a:a,b:b,goals:goals,assists:assists,ogA:0,ogB:0,scoreA:sum(a),scoreB:sum(b),mvp:mvp,names:names,sample:true};
-}
 function seed(){
-  var raw=[['Emre','O',7],['Burak','F',8],['Mert','K',6],['Can','D',6],['Oğuz','D',5],['Kerem','O',7],['Selim','F',6],
-           ['Tolga','D',7],['Barış','O',5],['Ozan','F',7],['Volkan','K',5],['Deniz','O',6],['Arda','D',6],['Yiğit','F',5]];
-  var players=raw.map(function(r,i){return {id:'p'+(i+1),name:r[0],pos:r[1],power:r[2],sample:true};});
-  var matches=[
-    mkMatch('m1','2026-09-29',['p1','p2','p3','p4','p5','p6','p7'],['p8','p9','p10','p11','p12','p13','p14'],{p2:2,p1:1,p7:1,p10:2,p9:1},{p6:1,p1:2,p12:1},'p2',players),
-    mkMatch('m2','2026-10-06',['p1','p3','p5','p8','p9','p10','p14'],['p2','p4','p6','p7','p11','p12','p13'],{p10:3,p1:1,p2:1,p7:1,p12:1},{p9:2,p8:1,p6:1},'p10',players),
-    mkMatch('m3','2026-10-13',['p2','p3','p4','p9','p10','p12','p13'],['p1','p5','p6','p7','p8','p11','p14'],{p2:1,p10:1,p12:1,p7:2,p1:1,p14:1},{p9:1,p6:2,p8:1,p4:1},'p7',players)
-  ];
-  matches.forEach(function(m,i){m.week=i+1;});
-  return {players:players,matches:matches,week1:'2026-09-29',lineups:{}};
+  return {players:[],matches:[],week1:nextTuesday(today()),lineups:{}};
 }
-function load(){
-  try{var raw=localStorage.getItem(KEY);if(raw){var d=JSON.parse(raw);if(d&&Array.isArray(d.players)&&Array.isArray(d.matches)){d.lineups=d.lineups||{};d.week1=d.week1||nextTuesday(today());return d;}}}catch(e){}
-  return seed();
-}
-function persist(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 
-var S=load();
+function persist(){
+  fetch(BIN_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(S)
+  }).catch(function(e){ console.error('Kaydetme hatası', e); });
+}
+
+var S = seed();
+
+fetch(BIN_URL)
+  .then(function(res){ return res.json(); })
+  .then(function(d){
+    if(d && Array.isArray(d.players) && Array.isArray(d.matches)){
+      S.players = d.players;
+      S.matches = d.matches;
+      S.week1 = d.week1 || nextTuesday(today());
+      S.lineups = d.lineups || {};
+      render();
+    }
+  }).catch(function(e){ console.error('Yükleme hatası', e); });
+
 var ui={tab:'mac',step:'kadro',view2:'saha',pick:null,week:defaultWeek(),wmsg:'',mode:'dengeli',fmt:7,sort:'puan',confirm:null,msg:'',
   draft:{sel:[],slots:null,form:null,goals:{},assists:{},ogA:0,ogB:0,mvp:null}};
 
@@ -324,7 +325,7 @@ function draftScore(){
 }
 function resetDraft(){ui.pick=null;ui.step='kadro';ui.view2='saha';ui.draft={sel:[],slots:null,form:null,goals:{},assists:{},ogA:0,ogB:0,mvp:null};}
 
-/* saha dizilişi: 1 kaleci, defans, orta saha, forvet */
+/* saha dizilişi */
 var FORMS={1:['1'],2:['1-1','2'],3:['1-1-1','2-1','1-2'],4:['2-2','1-2-1','2-1-1','1-1-2'],
   5:['2-2-1','2-1-2','1-3-1','3-2'],6:['3-2-1','2-3-1','2-2-2','1-3-2','3-1-2'],
   7:['3-3-1','3-2-2','2-3-2','4-2-1','2-4-1'],8:['3-3-2','4-3-1','3-4-1','4-2-2']};
@@ -386,13 +387,7 @@ function posOptions(cur){
 }
 
 function viewPlayers(st){
-  var hasSample=S.players.some(function(p){return p.sample;})||S.matches.some(function(m){return m.sample;});
-  var h='';
-  if(hasSample){
-    h+='<div class="banner"><b>Şu an örnek oyuncular ve maçlar görüyorsun.</b><span>Kendi kadronu girmeden önce örnekleri sil.</span>'+
-       '<div><button class="btn small" data-act="clearsample">Örnek verileri sil</button></div></div>';
-  }
-  h+='<section class="card"><h2>Oyuncu ekle</h2>'+
+  var h='<section class="card"><h2>Oyuncu ekle</h2>'+
     '<form id="addform" class="row" autocomplete="off">'+
       '<div class="field"><label class="label" for="pname">İsim</label><input type="text" id="pname" maxlength="24" placeholder="Örn. Hakan"></div>'+
       '<div class="field" style="flex:0 1 110px"><label class="label" for="ppos">Pozisyon</label><select id="ppos"><option value="K">Kaleci</option><option value="D">Defans</option><option value="O" selected>Orta saha</option><option value="F">Forvet</option></select></div>'+
@@ -406,19 +401,13 @@ function viewPlayers(st){
     var x=st[p.id],sure=ui.confirm==='p:'+p.id;
     h+='<li class="prow2">'+
       '<select class="possel" data-chg="pos" data-id="'+p.id+'" aria-label="'+esc(p.name)+' pozisyonu">'+posOptions(p.pos)+'</select>'+
-      '<div class="pn"><b>'+esc(p.name)+(p.sample?' <span class="tag">örnek</span>':'')+'</b><small>'+POS[p.pos]+' · elle '+p.power+' · '+x.n+' maç</small></div>'+
+      '<div class="pn"><b>'+esc(p.name)+'</b><small>'+POS[p.pos]+' · elle '+p.power+' · '+x.n+' maç</small></div>'+
       '<div class="step" role="group" aria-label="Elle güç"><button data-act="power" data-id="'+p.id+'" data-d="-1" aria-label="Azalt">−</button><b>'+p.power+'</b><button data-act="power" data-id="'+p.id+'" data-d="1" aria-label="Artır">+</button></div>'+
       '<div class="rate" title="Maç geçmişine göre güncel puan">'+x.rating.toFixed(1)+'</div>'+
       '<button class="ghost danger'+(sure?' sure':'')+'" data-act="delp" data-id="'+p.id+'">'+(sure?'Emin misin?':'Sil')+'</button>'+
     '</li>';
   });
   h+='</ul><small>Büyük sayı güncel puandır. İlk maçlarda senin verdiğin güce yakındır, oynadıkça galibiyet, gol, asist ve maçın adamı sayısına göre değişir.</small></section>';
-  h+='<section class="card"><details><summary class="label" style="cursor:pointer">Yedekle / geri yükle</summary>'+
-    '<div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">'+
-    '<small>Veriler bu telefonun tarayıcısında durur. Telefonu değiştirirsen ya da site verilerini silersen kaybolur. Yedeği kopyalayıp Notlar gibi bir yere yapıştırarak sakla.</small>'+
-    '<textarea id="backup" spellcheck="false">'+esc(JSON.stringify(S))+'</textarea>'+
-    '<div class="row"><button class="btn small" data-act="copybackup">Yedeği kopyala</button><button class="btn small alt" data-act="restore">Kutudaki yedeği yükle</button></div>'+
-    '<div class="notice" id="bmsg" hidden></div></div></details></section>';
   return h;
 }
 
@@ -585,7 +574,7 @@ function viewHistory(){
         return esc(nameOf(id,m))+(bits.length?' <small>('+bits.join(', ')+')</small>':'');
       }).join(', ')+'</div>';
     }
-    h+='<section class="card match"><div class="row spread"><span class="label">'+(m.week?esc(weekName(m.week))+' · '+fmtDay(weekDate(m.week),true):fmtDate(m.date))+'</span>'+(m.sample?'<span class="tag">örnek</span>':'')+'</div>'+
+    h+='<section class="card match"><div class="row spread"><span class="label">'+(m.week?esc(weekName(m.week))+' · '+fmtDay(weekDate(m.week),true):fmtDate(m.date))+'</span></div>'+
       '<div class="mscore"><span class="a">'+m.scoreA+'</span><i>–</i><span class="b">'+m.scoreB+'</span></div>'+
       '<div class="lines">'+line(m.a,'a')+line(m.b,'b')+'</div>'+
       '<div class="row spread"><span>'+(m.mvp?'Maçın adamı: <b>'+esc(nameOf(m.mvp,m))+'</b>':'<small>Maçın adamı seçilmedi</small>')+'</span>'+
@@ -649,7 +638,7 @@ document.addEventListener('click',function(e){
   var keep=(act==='delp'||act==='delm'||act==='dellu');
   if(!keep)ui.confirm=null;
   if(act!=='pick'&&act!=='slot')ui.pick=null;
-  if(act!=='save'&&act!=='copybackup'&&act!=='restore')ui.msg='';
+  if(act!=='save')ui.msg='';
   ui.wmsg='';
   if(act==='tab'){ui.tab=el.getAttribute('data-tab');window.scrollTo(0,0);}
   else if(act==='fmt'){ui.fmt=Number(el.getAttribute('data-n'));}
@@ -727,32 +716,6 @@ document.addEventListener('click',function(e){
     var p=player(id);if(p){p.power=clamp(p.power+Number(el.getAttribute('data-d')),1,10);persist();}
   }
   else if(act==='sort'){ui.sort=el.getAttribute('data-s');}
-  else if(act==='clearsample'){
-    S.players.filter(function(p){return p.sample;}).forEach(function(p){removeFromDraft(p.id);});
-    S.players=S.players.filter(function(p){return !p.sample;});
-    S.matches=S.matches.filter(function(m){return !m.sample;});
-    Object.keys(S.lineups).forEach(function(k){var l=S.lineups[k];if(!l.sel.some(function(id){return player(id);}))delete S.lineups[k];});
-    if(!S.matches.length)S.week1=nextTuesday(today());
-    ui.week=defaultWeek();
-    persist();
-  }
-  else if(act==='copybackup'||act==='restore'){
-    var ta=$('#backup'),box=$('#bmsg');
-    function say(t){box.hidden=false;box.textContent=t;}
-    if(act==='copybackup'){
-      ta.value=JSON.stringify(S);ta.select();
-      try{navigator.clipboard.writeText(ta.value).then(function(){say('Yedek kopyalandı.');},function(){say('Kopyalanamadı. Kutudaki yazı seçili, elle kopyalayabilirsin.');});}
-      catch(err){say('Kopyalanamadı. Kutudaki yazı seçili, elle kopyalayabilirsin.');}
-    }else{
-      try{
-        var data=JSON.parse(ta.value);
-        if(!data||!Array.isArray(data.players)||!Array.isArray(data.matches))throw new Error('x');
-        S={players:data.players,matches:data.matches,week1:data.week1||S.week1,lineups:data.lineups||{}};ui.week=defaultWeek();persist();resetDraft();render();
-        var b2=$('#bmsg');if(b2){b2.hidden=false;b2.textContent='Yedek yüklendi.';}
-      }catch(err){say('Yedek okunamadı. Kopyaladığın yazının tamamını yapıştırdığından emin ol.');}
-    }
-    return;
-  }
   render();
 });
 
