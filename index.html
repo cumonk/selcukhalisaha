@@ -75,7 +75,7 @@ small,.muted{color:var(--muted)}
 .pos{display:inline-grid; place-items:center; width:26px; height:26px; border-radius:50%; background:var(--bg); border:1px solid var(--line); font-family:var(--font-display); font-weight:800; font-size:14px; color:var(--muted)}
 .notice{background:var(--pitch-soft); border-radius:10px; padding:10px 12px; font-size:14px}
 .banner{background:var(--a-soft); border:1px solid var(--a); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px; font-size:14px}
-input[type=text],input[type=date],select,textarea{background:var(--bg); border:1.5px solid var(--line); border-radius:10px; padding:10px 12px; min-height:44px; width:100%; min-width:0}
+input[type=text],input[type=date],input[type=number],select,textarea{background:var(--bg); border:1.5px solid var(--line); border-radius:10px; padding:10px 12px; min-height:44px; width:100%; min-width:0}
 textarea{min-height:110px; font-family:ui-monospace,Menlo,monospace; font-size:12px}
 .field{display:flex; flex-direction:column; gap:6px; flex:1 1 140px; min-width:0}
 
@@ -162,6 +162,14 @@ th{font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--m
 td.who,th.who{text-align:left}
 td.who{font-weight:600}
 td.hl,th.hl{background:var(--pitch-soft); font-weight:700}
+
+/* numara, puan, Gol/Asist başlıkları */
+input.numin[type=number]{width:60px; min-height:36px; padding:4px 6px; text-align:center; font-weight:700}
+.tn i{font-style:normal; margin-left:5px; color:#FFE58A; font-variant-numeric:tabular-nums}
+.chip small{color:var(--muted); font-weight:600}
+.steps{align-items:flex-end}
+.sg{display:flex; flex-direction:column; align-items:center; gap:3px}
+.sg .sub{font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink)}
 
 /* gezinme */
 .nav{
@@ -251,6 +259,9 @@ fetch(BIN_URL)
       S.matches = d.matches;
       S.week1 = d.week1 || nextTuesday(today());
       S.lineups = d.lineups || {};
+      if(assignNumbers())persist();
+      ui.week = defaultWeek();
+      if(!ui.draft.sel.length && !ui.draft.slots) autoLoad();
       render();
     }
   }).catch(function(e){ console.error('Yükleme hatası', e); });
@@ -325,6 +336,38 @@ function draftScore(){
 }
 function resetDraft(){ui.pick=null;ui.step='kadro';ui.view2='saha';ui.draft={sel:[],slots:null,form:null,goals:{},assists:{},ogA:0,ogB:0,mvp:null};}
 
+/* numara ve hazır kadro */
+function numOf(p){return typeof p.num==='number'?String(p.num):p.pos;}
+function numTaken(n,exceptId){return S.players.some(function(p){return p.id!==exceptId&&p.num===n;});}
+function nextNum(){var n=1;while(numTaken(n))n++;return n;}
+function assignNumbers(){
+  var ch=false;
+  S.players.forEach(function(p){if(typeof p.num!=='number'||isNaN(p.num)){p.num=nextNum();ch=true;}});
+  return ch;
+}
+function applyLineup(lu){
+  var d=ui.draft;
+  function alive(x){return x!==null&&player(x)?x:null;}
+  d.sel=lu.sel.filter(function(x){return player(x);});
+  d.slots={A:lu.slots.A.map(alive),B:lu.slots.B.map(alive)};
+  d.form={A:lu.form.A,B:lu.form.B};
+  d.goals={};d.assists={};d.ogA=0;d.ogB=0;d.mvp=null;
+  if(lu.fmt)ui.fmt=lu.fmt;
+  ui.pick=null;
+}
+function autoLoad(){
+  var lu=S.lineups[ui.week],own=!!lu;
+  if(!lu){
+    var ks=Object.keys(S.lineups).map(Number).filter(function(n){return n<ui.week;}).sort(function(a,b){return b-a;});
+    if(ks.length)lu=S.lineups[ks[0]];
+  }
+  if(!lu)return false;
+  applyLineup(lu);
+  ui.step='saha';ui.view2='saha';
+  ui.wmsg=own?weekName(ui.week)+' kadrosu hazır.':'Önceki haftanın kadrosu hazır yüklendi. Değiştirip bu hafta için kaydedebilirsin.';
+  return true;
+}
+
 /* saha dizilişi */
 var FORMS={1:['1'],2:['1-1','2'],3:['1-1-1','2-1','1-2'],4:['2-2','1-2-1','2-1-1','1-1-2'],
   5:['2-2-1','2-1-2','1-3-1','3-2'],6:['3-2-1','2-3-1','2-2-2','1-3-2','3-1-2'],
@@ -390,6 +433,7 @@ function viewPlayers(st){
   var h='<section class="card"><h2>Oyuncu ekle</h2>'+
     '<form id="addform" class="row" autocomplete="off">'+
       '<div class="field"><label class="label" for="pname">İsim</label><input type="text" id="pname" maxlength="24" placeholder="Örn. Hakan"></div>'+
+      '<div class="field" style="flex:0 1 80px"><label class="label" for="pnum">Forma no</label><input type="number" id="pnum" min="0" max="99" inputmode="numeric" placeholder="'+nextNum()+'"></div>'+
       '<div class="field" style="flex:0 1 110px"><label class="label" for="ppos">Pozisyon</label><select id="ppos"><option value="K">Kaleci</option><option value="D">Defans</option><option value="O" selected>Orta saha</option><option value="F">Forvet</option></select></div>'+
       '<div class="field" style="flex:0 1 90px"><label class="label" for="ppower">Güç (1-10)</label><select id="ppower">'+[1,2,3,4,5,6,7,8,9,10].map(function(n){return '<option'+(n===6?' selected':'')+'>'+n+'</option>';}).join('')+'</select></div>'+
       '<button class="btn wide" type="submit">Oyuncuyu ekle</button>'+
@@ -400,6 +444,7 @@ function viewPlayers(st){
   S.players.forEach(function(p){
     var x=st[p.id],sure=ui.confirm==='p:'+p.id;
     h+='<li class="prow2">'+
+      '<input type="number" class="numin" data-chg="num" data-id="'+p.id+'" min="0" max="99" inputmode="numeric" value="'+(typeof p.num==='number'?p.num:'')+'" aria-label="'+esc(p.name)+' forma numarası">'+
       '<select class="possel" data-chg="pos" data-id="'+p.id+'" aria-label="'+esc(p.name)+' pozisyonu">'+posOptions(p.pos)+'</select>'+
       '<div class="pn"><b>'+esc(p.name)+'</b><small>'+POS[p.pos]+' · elle '+p.power+' · '+x.n+' maç</small></div>'+
       '<div class="step" role="group" aria-label="Elle güç"><button data-act="power" data-id="'+p.id+'" data-d="-1" aria-label="Azalt">−</button><b>'+p.power+'</b><button data-act="power" data-id="'+p.id+'" data-d="1" aria-label="Artır">+</button></div>'+
@@ -422,10 +467,10 @@ function teamBlock(side,ids,st){
   return h+'</div>';
 }
 
-function token(side,i,id){
+function token(side,i,id,st){
   if(id===null)return '<button class="tok empty" data-act="slot" data-side="'+side+'" data-i="'+i+'" aria-label="Boş yer"><span class="disc">+</span></button>';
   var p=player(id),sel=ui.pick===id;
-  return '<button class="tok '+side+(sel?' sel':'')+'" data-act="pick" data-id="'+id+'" aria-pressed="'+sel+'" aria-label="'+esc(p.name)+'"><span class="disc">'+p.pos+'</span><span class="tn">'+esc(p.name)+'</span></button>';
+  return '<button class="tok '+side+(sel?' sel':'')+'" data-act="pick" data-id="'+id+'" aria-pressed="'+sel+'" aria-label="'+esc(p.name)+'"><span class="disc">'+esc(numOf(p))+'</span><span class="tn">'+esc(p.name)+'<i>'+st[id].rating.toFixed(1)+'</i></span></button>';
 }
 function pitchSection(t,st){
   var d=ui.draft,h='<section class="card"><h2>Saha</h2>';
@@ -438,7 +483,7 @@ function pitchSection(t,st){
     rows.forEach(function(c){
       if(!c)return;
       out+='<div class="frow">';
-      for(var j=0;j<c;j++,k++)out+=token(side,k,sl[k]);
+      for(var j=0;j<c;j++,k++)out+=token(side,k,sl[k],st);
       out+='</div>';
     });
     return '<div class="half '+side+'">'+out+'</div>';
@@ -464,7 +509,7 @@ function pitchSection(t,st){
     '<div class="bench"><div class="label">Yedek / havuz</div>'+
     (t.P.length?'<div class="chips">'+t.P.map(function(id){
       var p=player(id),sel=ui.pick===id;
-      return '<button class="chip" data-act="pick" data-id="'+id+'" aria-pressed="'+sel+'"><span class="pos">'+p.pos+'</span>'+esc(p.name)+'</button>';
+      return '<button class="chip" data-act="pick" data-id="'+id+'" aria-pressed="'+sel+'"><span class="pos">'+esc(numOf(p))+'</span>'+esc(p.name)+' <small>'+p.pos+'</small></button>';
     }).join('')+'</div>':'<small>Herkes sahada.</small>')+
     (t.P.length&&!freeSlot?'<small>Sahada boş yer yok. Yedekteki oyuncuyu sahadaki biriyle değiştir ya da kadrodan çıkar.</small>':'')+
     '</div>'+
@@ -472,8 +517,8 @@ function pitchSection(t,st){
   return h;
 }
 
-function stepper(id,k,val){
-  return '<div class="step"><button data-act="step" data-id="'+id+'" data-k="'+k+'" data-d="-1" aria-label="Azalt">−</button><b>'+val+'</b><button data-act="step" data-id="'+id+'" data-k="'+k+'" data-d="1" aria-label="Artır">+</button></div>';
+function stepper(id,k,val,label){
+  return '<div class="sg"><span class="sub">'+label+'</span><div class="step"><button data-act="step" data-id="'+id+'" data-k="'+k+'" data-d="-1" aria-label="'+label+' azalt">−</button><b>'+val+'</b><button data-act="step" data-id="'+id+'" data-k="'+k+'" data-d="1" aria-label="'+label+' artır">+</button></div></div>';
 }
 
 function weekBar(showSave){
@@ -520,7 +565,7 @@ function viewKadro(st){
   if(!S.players.length){h+='<p class="muted" style="margin:0">Önce Oyuncular sekmesinden oyuncu ekle.</p>';}
   h+='<div class="chips">'+S.players.map(function(p){
     var on=d.sel.indexOf(p.id)>=0;
-    return '<button class="chip" data-act="toggleSel" data-id="'+p.id+'" aria-pressed="'+on+'"><span class="pos">'+p.pos+'</span>'+esc(p.name)+'</button>';
+    return '<button class="chip" data-act="toggleSel" data-id="'+p.id+'" aria-pressed="'+on+'"><span class="pos">'+esc(numOf(p))+'</span>'+esc(p.name)+' <small>'+p.pos+'</small></button>';
   }).join('')+'</div>';
   if(d.sel.length&&d.sel.length!==need){h+='<small>'+ui.fmt+'v'+ui.fmt+' için '+need+' oyuncu gerekir, istersen farklı sayıyla da kurabilirsin.</small>';}
   h+='<div class="label">Takım kurma yöntemi</div>'+
@@ -546,10 +591,10 @@ function viewSaha(st){
       '<div class="board" aria-label="Skor"><span class="a">'+sc.a+'</span><i>–</i><span class="b">'+sc.b+'</span></div>'+
       '<small style="text-align:center">Skor, girdiğin gollerden otomatik hesaplanır.</small>';
     [['A',t.A,'ogA'],['B',t.B,'ogB']].forEach(function(s){
-      h+='<div><div class="row spread"><h3 style="color:var(--'+s[0].toLowerCase()+')">Takım '+TEAM[s[0]]+'</h3><span class="sub">Gol · Asist · Maçın adamı</span></div>';
+      h+='<div><div class="row spread"><h3 style="color:var(--'+s[0].toLowerCase()+')">Takım '+TEAM[s[0]]+'</h3><span class="sub">★ = maçın adamı</span></div>';
       s[1].forEach(function(id){
-        h+='<div class="srow"><span class="nm">'+esc(player(id).name)+'</span><div class="steps">'+stepper(id,'goals',d.goals[id]||0)+stepper(id,'assists',d.assists[id]||0)+
-          '<button class="mvp" data-act="mvp" data-id="'+id+'" aria-pressed="'+(d.mvp===id)+'" aria-label="'+esc(player(id).name)+' maçın adamı">★</button></div></div>';
+        h+='<div class="srow"><span class="nm"><span class="pos" style="margin-right:6px">'+esc(numOf(player(id)))+'</span>'+esc(player(id).name)+'</span><div class="steps">'+stepper(id,'goals',d.goals[id]||0,'Gol')+stepper(id,'assists',d.assists[id]||0,'Asist')+
+          '<div class="sg"><span class="sub">MVP</span><button class="mvp" data-act="mvp" data-id="'+id+'" aria-pressed="'+(d.mvp===id)+'" aria-label="'+esc(player(id).name)+' maçın adamı">★</button></div></div></div>';
       });
       h+='<div class="srow"><span class="nm muted">Kendi kalesine atılan</span><div class="steps"><div class="step"><button data-act="og" data-s="'+s[2]+'" data-d="-1" aria-label="Azalt">−</button><b>'+d[s[2]]+'</b><button data-act="og" data-s="'+s[2]+'" data-d="1" aria-label="Artır">+</button></div></div></div></div>';
     });
@@ -670,16 +715,7 @@ document.addEventListener('click',function(e){
   }
   else if(act==='loadlu'){
     var lu=S.lineups[ui.week];
-    if(lu){
-      function alive(x){return x!==null&&player(x)?x:null;}
-      d.sel=lu.sel.filter(function(x){return player(x);});
-      d.slots={A:lu.slots.A.map(alive),B:lu.slots.B.map(alive)};
-      d.form={A:lu.form.A,B:lu.form.B};
-      d.goals={};d.assists={};d.ogA=0;d.ogB=0;d.mvp=null;
-      if(lu.fmt)ui.fmt=lu.fmt;
-      ui.step='saha';ui.view2='saha';window.scrollTo(0,0);
-      ui.wmsg=weekName(ui.week)+' kadrosu yüklendi.';
-    }
+    if(lu){applyLineup(lu);ui.step='saha';ui.view2='saha';window.scrollTo(0,0);ui.wmsg=weekName(ui.week)+' kadrosu yüklendi.';}
   }
   else if(act==='dellu'){
     if(ui.confirm==='l:'+ui.week){delete S.lineups[ui.week];ui.confirm=null;persist();}
@@ -701,7 +737,8 @@ document.addEventListener('click',function(e){
         if(d.goals[i])goals[i]=d.goals[i];if(d.assists[i])assists[i]=d.assists[i];names[i]=player(i).name;
       });
       S.matches.push({id:'m'+Date.now(),date:weekDate(ui.week),week:ui.week,a:tt.A,b:tt.B,goals:goals,assists:assists,ogA:d.ogA,ogB:d.ogB,scoreA:sc.a,scoreB:sc.b,mvp:d.mvp,names:names});
-      persist();resetDraft();ui.week=defaultWeek();ui.tab='gecmis';ui.msg='Maç kaydedildi.';window.scrollTo(0,0);
+      S.lineups[ui.week]={sel:d.sel.slice(),slots:{A:d.slots.A.slice(),B:d.slots.B.slice()},form:{A:d.form.A,B:d.form.B},fmt:ui.fmt};
+      persist();resetDraft();ui.week=defaultWeek();autoLoad();ui.tab='gecmis';ui.msg='Maç kaydedildi.';window.scrollTo(0,0);
     }
   }
   else if(act==='delm'){
@@ -724,8 +761,17 @@ document.addEventListener('change',function(e){
   if(el.getAttribute('data-chg')==='pos'){
     var p=player(el.getAttribute('data-id'));
     if(p){p.pos=el.value;persist();render();}
+  }else if(el.getAttribute('data-chg')==='num'){
+    var pn=player(el.getAttribute('data-id')),nv=el.value===''?NaN:Math.floor(Number(el.value));
+    if(pn){
+      if(isNaN(nv)||nv<0||nv>99||numTaken(nv,pn.id)){ui.msg='Numara 0-99 arası olmalı ve başka oyuncuda bulunmamalı.';}
+      else{pn.num=nv;persist();}
+      render();
+    }
   }else if(el.getAttribute('data-chg')==='week'){
-    ui.week=Number(el.value);ui.confirm=null;ui.wmsg='';render();
+    ui.week=Number(el.value);ui.confirm=null;ui.wmsg='';
+    if(S.lineups[ui.week]){applyLineup(S.lineups[ui.week]);ui.wmsg=weekName(ui.week)+' kadrosu yüklendi.';}
+    render();
   }else if(el.getAttribute('data-chg')==='week1'){
     var v=el.value;
     if(v){
@@ -749,8 +795,13 @@ document.addEventListener('submit',function(e){
   e.preventDefault();
   var name=$('#pname').value.trim();
   if(!name){ui.msg='Önce bir isim yaz.';render();return;}
-  var pos=$('#ppos').value,power=Number($('#ppower').value);
-  S.players.push({id:'p'+Date.now()+Math.floor(Math.random()*1000),name:name,pos:pos,power:power});
+  var pos=$('#ppos').value,power=Number($('#ppower').value),raw=$('#pnum').value.trim(),num;
+  if(raw===''){num=nextNum();}
+  else{
+    num=Math.floor(Number(raw));
+    if(isNaN(num)||num<0||num>99||numTaken(num)){ui.msg='Numara 0-99 arası olmalı ve başka oyuncuda bulunmamalı.';render();return;}
+  }
+  S.players.push({id:'p'+Date.now()+Math.floor(Math.random()*1000),name:name,pos:pos,power:power,num:num});
   persist();ui.msg=name+' kadroya eklendi.';render();
   var inp=$('#pname');if(inp)inp.focus();
 });
