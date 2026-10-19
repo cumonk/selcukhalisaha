@@ -165,7 +165,9 @@ td.hl,th.hl{background:var(--pitch-soft); font-weight:700}
 
 /* numara, puan, Gol/Asist başlıkları */
 input.numin[type=number]{width:60px; min-height:36px; padding:4px 6px; text-align:center; font-weight:700}
-.tn i{font-style:normal; margin-left:5px; color:#FFE58A; font-variant-numeric:tabular-nums}
+.tn{display:flex; flex-direction:column; align-items:center; gap:1px; width:100%}
+.tn .tnn{display:block; max-width:100%; overflow-wrap:anywhere}
+.tn i{display:block; font-style:normal; margin:0; color:#FFE58A; font-variant-numeric:tabular-nums; font-size:11px}
 .chip small{color:var(--muted); font-weight:600}
 .steps{align-items:flex-end}
 .sg{display:flex; flex-direction:column; align-items:center; gap:3px}
@@ -470,7 +472,7 @@ function teamBlock(side,ids,st){
 function token(side,i,id,st){
   if(id===null)return '<button class="tok empty" data-act="slot" data-side="'+side+'" data-i="'+i+'" aria-label="Boş yer"><span class="disc">+</span></button>';
   var p=player(id),sel=ui.pick===id;
-  return '<button class="tok '+side+(sel?' sel':'')+'" data-act="pick" data-id="'+id+'" aria-pressed="'+sel+'" aria-label="'+esc(p.name)+'"><span class="disc">'+esc(numOf(p))+'</span><span class="tn">'+esc(p.name)+'<i>'+st[id].rating.toFixed(1)+'</i></span></button>';
+  return '<button class="tok '+side+(sel?' sel':'')+'" data-act="pick" data-id="'+id+'" aria-pressed="'+sel+'" aria-label="'+esc(p.name)+'"><span class="disc">'+esc(numOf(p))+'</span><span class="tn"><span class="tnn">'+esc(p.name)+'</span><i>'+st[id].rating.toFixed(1)+'</i></span></button>';
 }
 function pitchSection(t,st){
   var d=ui.draft,h='<section class="card"><h2>Saha</h2>';
