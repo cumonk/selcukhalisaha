@@ -168,7 +168,12 @@ input.numin[type=number]{width:60px; min-height:36px; padding:4px 6px; text-alig
 .tn{display:flex; flex-direction:row; align-items:center; justify-content:center; gap:4px; width:auto; max-width:100%; white-space:nowrap; overflow-wrap:normal}
 .tn .tno{flex:none; font-variant-numeric:tabular-nums}
 .tn .tnn{min-width:0; overflow:hidden; text-overflow:ellipsis}
-.tn i{flex:none; font-style:normal; margin:0; color:#FFE58A; font-variant-numeric:tabular-nums; font-size:11px}
+.tn i{flex:none; font-style:normal; margin:0; color:#FFE58A; font-variant-numeric:tabular-nums; font-size:inherit}
+.pitch .tn{font-size:var(--tnfs,11.5px)}
+.pitch.norate .tn i{display:none}
+.cropv{width:240px; height:240px; margin:0 auto; border-radius:50%; overflow:hidden; border:3px solid var(--pitch); background:#000; cursor:grab; touch-action:none}
+.cropv canvas{display:block; width:100%; height:100%; touch-action:none}
+.pwbox input[type=range]{accent-color:var(--pitch)}
 .disc{overflow:hidden}
 .disc img{width:100%; height:100%; object-fit:cover; display:block}
 .avatar{position:relative; width:44px; height:44px; flex:none; border-radius:50%; overflow:hidden; display:grid; place-items:center; background:var(--bg); border:1.5px dashed var(--line); color:var(--muted); font-family:var(--font-display); font-weight:800; font-size:22px; cursor:pointer}
@@ -472,7 +477,7 @@ function viewPlayers(st){
       '<label class="avatar" title="Fotoğraf ekle / değiştir">'+(p.photo?'<img src="'+esc(p.photo)+'" alt="">':'+')+'<input type="file" accept="image/*" data-chg="photo" data-id="'+p.id+'" aria-label="'+esc(p.name)+' fotoğrafı"></label>'+
       '<input type="number" class="numin" data-chg="num" data-id="'+p.id+'" min="0" max="99" inputmode="numeric" value="'+(typeof p.num==='number'?p.num:'')+'" aria-label="'+esc(p.name)+' forma numarası">'+
       '<select class="possel" data-chg="pos" data-id="'+p.id+'" aria-label="'+esc(p.name)+' pozisyonu">'+posOptions(p.pos)+'</select>'+
-      '<div class="pn"><b>'+esc(p.name)+'</b><small>'+POS[p.pos]+' · elle '+p.power+' · '+x.n+' maç</small>'+(p.photo?'<button class="ghost" style="padding:0;min-height:0;font-size:12px;text-align:left" data-act="rmphoto" data-id="'+p.id+'">Fotoğrafı kaldır</button>':'')+'</div>'+
+      '<div class="pn"><b>'+esc(p.name)+'</b><small>'+POS[p.pos]+' · elle '+p.power+' · '+x.n+' maç</small>'+(p.photo?'<div class="row" style="gap:14px"><button class="ghost" style="padding:0;min-height:0;font-size:12px" data-act="adjphoto" data-id="'+p.id+'">Fotoğrafı ayarla</button><button class="ghost" style="padding:0;min-height:0;font-size:12px" data-act="rmphoto" data-id="'+p.id+'">Kaldır</button></div>':'')+'</div>'+
       '<div class="step" role="group" aria-label="Elle güç"><button data-act="power" data-id="'+p.id+'" data-d="-1" aria-label="Azalt">−</button><b>'+p.power+'</b><button data-act="power" data-id="'+p.id+'" data-d="1" aria-label="Artır">+</button></div>'+
       '<div class="rate" title="Maç geçmişine göre güncel puan">'+x.rating.toFixed(1)+'</div>'+
       '<button class="ghost danger'+(sure?' sure':'')+'" data-act="delp" data-id="'+p.id+'">'+(sure?'Emin misin?':'Sil')+'</button>'+
@@ -691,6 +696,7 @@ function render(){
   document.querySelectorAll('.nav button').forEach(function(b){b.setAttribute('aria-current',b.getAttribute('data-tab')===ui.tab?'page':'false');});
   $('#sub').textContent=S.players.length+' oyuncu · '+S.matches.length+' maç';
   if(ui.pw){var pi=$('#pwin');if(pi)pi.focus();}
+  fitPitch();
 }
 function pwDialog(){
   if(!ui.pw)return '';
@@ -709,21 +715,59 @@ function removeFromDraft(id){
   delete d.goals[id];delete d.assists[id];
   if(d.mvp===id)d.mvp=null;
 }
-function resizePhoto(file,cb){
-  var fr=new FileReader();
-  fr.onerror=function(){cb(null);};
-  fr.onload=function(){
-    var im=new Image();
-    im.onerror=function(){cb(null);};
-    im.onload=function(){
-      var n=112,c=document.createElement('canvas');c.width=n;c.height=n;
-      var w=im.naturalWidth,h=im.naturalHeight,m=Math.min(w,h);
-      c.getContext('2d').drawImage(im,(w-m)/2,(h-m)/2,m,m,0,0,n,n);
-      cb(c.toDataURL('image/jpeg',0.8));
-    };
-    im.src=fr.result;
+function openCropper(pid,src){
+  var im=new Image();
+  im.onerror=function(){ui.msg='Fotoğraf okunamadı.';render();};
+  im.onload=function(){
+    var V=240,w=im.naturalWidth,h=im.naturalHeight,base=V/Math.min(w,h),z=1,ox=0,oy=0;
+    var ov=document.createElement('div');ov.className='pwback';
+    ov.innerHTML='<div class="pwbox card" role="dialog" aria-label="Fotoğrafı ayarla"><h2>Fotoğrafı ayarla</h2><small>Sürükleyerek kaydır, çubukla yakınlaştır.</small>'+
+      '<div class="cropv"><canvas width="'+V+'" height="'+V+'"></canvas></div>'+
+      '<input type="range" min="1" max="4" step="0.01" value="1" aria-label="Yakınlaştır" style="width:100%">'+
+      '<div class="row"><button type="button" class="btn" data-ok style="flex:1">Kaydet</button><button type="button" class="btn alt" data-no style="flex:1">Vazgeç</button></div></div>';
+    document.body.appendChild(ov);
+    var cv=ov.querySelector('canvas'),ctx=cv.getContext('2d'),rg=ov.querySelector('input');
+    function clampO(){var sc=base*z,mx=Math.max(0,(w*sc-V)/2),my=Math.max(0,(h*sc-V)/2);ox=clamp(ox,-mx,mx);oy=clamp(oy,-my,my);}
+    function draw(c,k){var sc=base*z*k,cx=V*k/2;c.fillStyle='#000';c.fillRect(0,0,V*k,V*k);c.drawImage(im,cx-w*sc/2+ox*k,cx-h*sc/2+oy*k,w*sc,h*sc);}
+    function paint(){clampO();draw(ctx,1);}
+    paint();
+    var drag=null;
+    cv.addEventListener('pointerdown',function(e){drag={x:e.clientX,y:e.clientY};cv.setPointerCapture(e.pointerId);e.preventDefault();});
+    cv.addEventListener('pointermove',function(e){
+      if(!drag)return;
+      var r=cv.getBoundingClientRect(),f=V/r.width;
+      ox+=(e.clientX-drag.x)*f;oy+=(e.clientY-drag.y)*f;drag={x:e.clientX,y:e.clientY};paint();
+    });
+    function end(){drag=null;}
+    cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
+    rg.addEventListener('input',function(){z=Number(rg.value);paint();});
+    function onKey(e){if(e.key==='Escape')close();}
+    function close(){document.removeEventListener('keydown',onKey);ov.remove();if(src.indexOf('blob:')===0)URL.revokeObjectURL(src);}
+    document.addEventListener('keydown',onKey);
+    ov.querySelector('[data-no]').addEventListener('click',close);
+    ov.querySelector('[data-ok]').addEventListener('click',function(){
+      var o=document.createElement('canvas'),N=160;o.width=N;o.height=N;
+      draw(o.getContext('2d'),N/V);
+      var pl=player(pid);
+      if(pl){pl.photo=o.toDataURL('image/jpeg',0.85);persist();}
+      close();render();
+    });
   };
-  fr.readAsDataURL(file);
+  im.src=src;
+}
+/* Sahada isim + puan sığıyorsa göster; sığmazsa önce yazıyı küçült, olmazsa puanları gizle */
+function fitPitch(){
+  var pt=document.querySelector('.pitch');if(!pt)return;
+  pt.classList.remove('norate');pt.style.removeProperty('--tnfs');
+  function over(){
+    var bad=false;
+    pt.querySelectorAll('.tn .tnn').forEach(function(n){if(n.scrollWidth>n.clientWidth+0.5)bad=true;});
+    return bad;
+  }
+  if(!over())return;
+  pt.style.setProperty('--tnfs','10px');
+  if(!over())return;
+  pt.classList.add('norate');
 }
 function bump(obj,id,delta,max){obj[id]=clamp((obj[id]||0)+delta,0,max);}
 
@@ -804,6 +848,7 @@ document.addEventListener('click',function(e){
   else if(act==='power'){
     var p=player(id);if(p){p.power=clamp(p.power+Number(el.getAttribute('data-d')),1,10);persist();}
   }
+  else if(act==='adjphoto'){var pa=player(id);if(pa&&pa.photo)openCropper(id,pa.photo);}
   else if(act==='rmphoto'){var pr=player(id);if(pr){delete pr.photo;persist();}}
   else if(act==='sort'){ui.sort=el.getAttribute('data-s');}
   render();
@@ -816,7 +861,8 @@ document.addEventListener('change',function(e){
     if(p){p.pos=el.value;persist();render();}
   }else if(el.getAttribute('data-chg')==='photo'){
     var pp=player(el.getAttribute('data-id')),f=el.files&&el.files[0];
-    if(pp&&f)resizePhoto(f,function(url){if(url){pp.photo=url;persist();}else{ui.msg='Fotoğraf okunamadı.';}render();});
+    if(pp&&f)openCropper(pp.id,URL.createObjectURL(f));
+    el.value='';
   }else if(el.getAttribute('data-chg')==='num'){
     var pn=player(el.getAttribute('data-id')),nv=el.value===''?NaN:Math.floor(Number(el.value));
     if(pn){
@@ -877,6 +923,8 @@ document.addEventListener('submit',function(e){
 });
 
 render();
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitPitch);
+window.addEventListener('resize',fitPitch);
 })();
 </script>
 
