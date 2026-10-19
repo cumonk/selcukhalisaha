@@ -75,7 +75,7 @@ small,.muted{color:var(--muted)}
 .pos{display:inline-grid; place-items:center; width:26px; height:26px; border-radius:50%; background:var(--bg); border:1px solid var(--line); font-family:var(--font-display); font-weight:800; font-size:14px; color:var(--muted)}
 .notice{background:var(--pitch-soft); border-radius:10px; padding:10px 12px; font-size:14px}
 .banner{background:var(--a-soft); border:1px solid var(--a); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px; font-size:14px}
-input[type=text],input[type=date],input[type=number],select,textarea{background:var(--bg); border:1.5px solid var(--line); border-radius:10px; padding:10px 12px; min-height:44px; width:100%; min-width:0}
+input[type=text],input[type=date],input[type=number],input[type=password],select,textarea{background:var(--bg); border:1.5px solid var(--line); border-radius:10px; padding:10px 12px; min-height:44px; width:100%; min-width:0}
 textarea{min-height:110px; font-family:ui-monospace,Menlo,monospace; font-size:12px}
 .field{display:flex; flex-direction:column; gap:6px; flex:1 1 140px; min-width:0}
 
@@ -115,7 +115,7 @@ textarea{min-height:110px; font-family:ui-monospace,Menlo,monospace; font-size:1
 .half.A{top:0; flex-direction:column; padding:36px 4px 26px}
 .half.B{bottom:0; flex-direction:column-reverse; padding:26px 4px 36px}
 .frow{display:flex; justify-content:space-around; align-items:flex-start; gap:6px}
-.tok{display:flex; flex-direction:column; align-items:center; gap:3px; border:0; background:transparent; padding:2px; min-width:0; flex:0 1 84px}
+.tok{display:flex; flex-direction:column; align-items:center; gap:3px; border:0; background:transparent; padding:2px; min-width:0; flex:0 1 92px}
 .disc{width:42px; max-width:100%; aspect-ratio:1; border-radius:50%; display:grid; place-items:center; font-family:var(--font-display); font-weight:800; font-size:19px; color:#fff; border:2.5px solid #fff; box-shadow:0 2px 5px rgba(0,0,0,.3)}
 .tok.A .disc{background:var(--ta)}
 .tok.B .disc{background:var(--tb)}
@@ -165,13 +165,24 @@ td.hl,th.hl{background:var(--pitch-soft); font-weight:700}
 
 /* numara, puan, Gol/Asist başlıkları */
 input.numin[type=number]{width:60px; min-height:36px; padding:4px 6px; text-align:center; font-weight:700}
-.tn{display:flex; flex-direction:column; align-items:center; gap:1px; width:100%}
-.tn .tnn{display:block; max-width:100%; overflow-wrap:anywhere}
-.tn i{display:block; font-style:normal; margin:0; color:#FFE58A; font-variant-numeric:tabular-nums; font-size:11px}
+.tn{display:flex; flex-direction:row; align-items:center; justify-content:center; gap:4px; width:auto; max-width:100%; white-space:nowrap; overflow-wrap:normal}
+.tn .tno{flex:none; font-variant-numeric:tabular-nums}
+.tn .tnn{min-width:0; overflow:hidden; text-overflow:ellipsis}
+.tn i{flex:none; font-style:normal; margin:0; color:#FFE58A; font-variant-numeric:tabular-nums; font-size:11px}
+.disc{overflow:hidden}
+.disc img{width:100%; height:100%; object-fit:cover; display:block}
+.avatar{position:relative; width:44px; height:44px; flex:none; border-radius:50%; overflow:hidden; display:grid; place-items:center; background:var(--bg); border:1.5px dashed var(--line); color:var(--muted); font-family:var(--font-display); font-weight:800; font-size:22px; cursor:pointer}
+.avatar img{width:100%; height:100%; object-fit:cover; display:block}
+.avatar input{position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer}
+.avatar:focus-within{outline:3px solid var(--pitch); outline-offset:2px}
 .chip small{color:var(--muted); font-weight:600}
 .steps{align-items:flex-end}
 .sg{display:flex; flex-direction:column; align-items:center; gap:3px}
 .sg .sub{font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink)}
+
+/* şifre penceresi */
+.pwback{position:fixed; inset:0; z-index:20; background:rgba(0,0,0,.5); display:grid; place-items:center; padding:16px}
+.pwbox{width:100%; max-width:360px}
 
 /* gezinme */
 .nav{
@@ -214,6 +225,18 @@ input.numin[type=number]{width:60px; min-height:36px; padding:4px 6px; text-alig
 var BIN_URL='https://api.npoint.io/2f0a4a1356fa7b1d3d88';
 var POS={K:'Kaleci',D:'Defans',O:'Orta saha',F:'Forvet'};
 var TEAM={A:'Turuncu',B:'Mavi'};
+/* Şifre: SHA-256 özeti. Değiştirmek için yeni şifrenin özetini bu satıra yapıştır (arayüzde şifre değiştirme yok). */
+var PW_HASH='d42ed19c0d9c80706b6b1484a97cf8634285d753ac079717aee8c651d54caef3';
+var LOCKED={savelu:1,dellu:1,save:1};
+function sha256hex(str){
+  return crypto.subtle.digest('SHA-256',new TextEncoder().encode(str)).then(function(b){
+    return Array.from(new Uint8Array(b)).map(function(x){return x.toString(16).padStart(2,'0');}).join('');
+  });
+}
+function isUnlocked(){
+  if(ui.unlocked)return true;
+  try{return sessionStorage.getItem('hd_ok')===PW_HASH;}catch(x){return false;}
+}
 
 function $(s){return document.querySelector(s);}
 function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
@@ -268,7 +291,7 @@ fetch(BIN_URL)
     }
   }).catch(function(e){ console.error('Yükleme hatası', e); });
 
-var ui={tab:'mac',step:'kadro',view2:'saha',pick:null,week:defaultWeek(),wmsg:'',mode:'dengeli',fmt:7,sort:'puan',confirm:null,msg:'',
+var ui={tab:'mac',step:'kadro',view2:'saha',pick:null,week:defaultWeek(),wmsg:'',mode:'dengeli',fmt:7,sort:'puan',confirm:null,msg:'',pw:null,pwErr:'',unlocked:false,
   draft:{sel:[],slots:null,form:null,goals:{},assists:{},ogA:0,ogB:0,mvp:null}};
 
 /* ---------- hesaplar ---------- */
@@ -446,9 +469,10 @@ function viewPlayers(st){
   S.players.forEach(function(p){
     var x=st[p.id],sure=ui.confirm==='p:'+p.id;
     h+='<li class="prow2">'+
+      '<label class="avatar" title="Fotoğraf ekle / değiştir">'+(p.photo?'<img src="'+esc(p.photo)+'" alt="">':'+')+'<input type="file" accept="image/*" data-chg="photo" data-id="'+p.id+'" aria-label="'+esc(p.name)+' fotoğrafı"></label>'+
       '<input type="number" class="numin" data-chg="num" data-id="'+p.id+'" min="0" max="99" inputmode="numeric" value="'+(typeof p.num==='number'?p.num:'')+'" aria-label="'+esc(p.name)+' forma numarası">'+
       '<select class="possel" data-chg="pos" data-id="'+p.id+'" aria-label="'+esc(p.name)+' pozisyonu">'+posOptions(p.pos)+'</select>'+
-      '<div class="pn"><b>'+esc(p.name)+'</b><small>'+POS[p.pos]+' · elle '+p.power+' · '+x.n+' maç</small></div>'+
+      '<div class="pn"><b>'+esc(p.name)+'</b><small>'+POS[p.pos]+' · elle '+p.power+' · '+x.n+' maç</small>'+(p.photo?'<button class="ghost" style="padding:0;min-height:0;font-size:12px;text-align:left" data-act="rmphoto" data-id="'+p.id+'">Fotoğrafı kaldır</button>':'')+'</div>'+
       '<div class="step" role="group" aria-label="Elle güç"><button data-act="power" data-id="'+p.id+'" data-d="-1" aria-label="Azalt">−</button><b>'+p.power+'</b><button data-act="power" data-id="'+p.id+'" data-d="1" aria-label="Artır">+</button></div>'+
       '<div class="rate" title="Maç geçmişine göre güncel puan">'+x.rating.toFixed(1)+'</div>'+
       '<button class="ghost danger'+(sure?' sure':'')+'" data-act="delp" data-id="'+p.id+'">'+(sure?'Emin misin?':'Sil')+'</button>'+
@@ -472,7 +496,7 @@ function teamBlock(side,ids,st){
 function token(side,i,id,st){
   if(id===null)return '<button class="tok empty" data-act="slot" data-side="'+side+'" data-i="'+i+'" aria-label="Boş yer"><span class="disc">+</span></button>';
   var p=player(id),sel=ui.pick===id;
-  return '<button class="tok '+side+(sel?' sel':'')+'" data-act="pick" data-id="'+id+'" aria-pressed="'+sel+'" aria-label="'+esc(p.name)+'"><span class="disc">'+esc(numOf(p))+'</span><span class="tn"><span class="tnn">'+esc(p.name)+'</span><i>'+st[id].rating.toFixed(1)+'</i></span></button>';
+  return '<button class="tok '+side+(sel?' sel':'')+'" data-act="pick" data-id="'+id+'" aria-pressed="'+sel+'" aria-label="'+esc(p.name)+'"><span class="disc">'+(p.photo?'<img src="'+esc(p.photo)+'" alt="">':esc(p.pos))+'</span><span class="tn">'+(typeof p.num==='number'?'<b class="tno">'+p.num+'</b>':'')+'<span class="tnn">'+esc(p.name)+'</span><i>'+st[id].rating.toFixed(1)+'</i></span></button>';
 }
 function pitchSection(t,st){
   var d=ui.draft,h='<section class="card"><h2>Saha</h2>';
@@ -663,9 +687,17 @@ function render(){
   else if(ui.tab==='gecmis')html=viewHistory();
   else if(ui.tab==='istatistik')html=viewStats(st);
   else html=viewMac(st);
-  $('#app').innerHTML=html;
+  $('#app').innerHTML=html+pwDialog();
   document.querySelectorAll('.nav button').forEach(function(b){b.setAttribute('aria-current',b.getAttribute('data-tab')===ui.tab?'page':'false');});
   $('#sub').textContent=S.players.length+' oyuncu · '+S.matches.length+' maç';
+  if(ui.pw){var pi=$('#pwin');if(pi)pi.focus();}
+}
+function pwDialog(){
+  if(!ui.pw)return '';
+  return '<div class="pwback"><form id="pwform" class="pwbox card" autocomplete="off"><h2>Şifre gerekli</h2><small>Kadroyu kaydetmek için şifreyi gir.</small>'+
+    '<input type="password" id="pwin" autocomplete="current-password" aria-label="Şifre">'+
+    (ui.pwErr?'<div class="notice" style="background:var(--danger-soft)">'+esc(ui.pwErr)+'</div>':'')+
+    '<div class="row"><button type="submit" class="btn" style="flex:1">Onayla</button><button type="button" class="btn alt" style="flex:1" data-act="pwcancel">Vazgeç</button></div></form></div>';
 }
 
 /* ---------- eylemler ---------- */
@@ -677,11 +709,29 @@ function removeFromDraft(id){
   delete d.goals[id];delete d.assists[id];
   if(d.mvp===id)d.mvp=null;
 }
+function resizePhoto(file,cb){
+  var fr=new FileReader();
+  fr.onerror=function(){cb(null);};
+  fr.onload=function(){
+    var im=new Image();
+    im.onerror=function(){cb(null);};
+    im.onload=function(){
+      var n=112,c=document.createElement('canvas');c.width=n;c.height=n;
+      var w=im.naturalWidth,h=im.naturalHeight,m=Math.min(w,h);
+      c.getContext('2d').drawImage(im,(w-m)/2,(h-m)/2,m,m,0,0,n,n);
+      cb(c.toDataURL('image/jpeg',0.8));
+    };
+    im.src=fr.result;
+  };
+  fr.readAsDataURL(file);
+}
 function bump(obj,id,delta,max){obj[id]=clamp((obj[id]||0)+delta,0,max);}
 
 document.addEventListener('click',function(e){
   var el=e.target.closest('[data-act]');if(!el)return;
   var act=el.getAttribute('data-act'),id=el.getAttribute('data-id'),d=ui.draft;
+  if(act==='pwcancel'){ui.pw=null;ui.pwErr='';render();return;}
+  if(LOCKED[act]&&!isUnlocked()){ui.pw={act:act};ui.pwErr='';render();return;}
   var keep=(act==='delp'||act==='delm'||act==='dellu');
   if(!keep)ui.confirm=null;
   if(act!=='pick'&&act!=='slot')ui.pick=null;
@@ -754,6 +804,7 @@ document.addEventListener('click',function(e){
   else if(act==='power'){
     var p=player(id);if(p){p.power=clamp(p.power+Number(el.getAttribute('data-d')),1,10);persist();}
   }
+  else if(act==='rmphoto'){var pr=player(id);if(pr){delete pr.photo;persist();}}
   else if(act==='sort'){ui.sort=el.getAttribute('data-s');}
   render();
 });
@@ -763,6 +814,9 @@ document.addEventListener('change',function(e){
   if(el.getAttribute('data-chg')==='pos'){
     var p=player(el.getAttribute('data-id'));
     if(p){p.pos=el.value;persist();render();}
+  }else if(el.getAttribute('data-chg')==='photo'){
+    var pp=player(el.getAttribute('data-id')),f=el.files&&el.files[0];
+    if(pp&&f)resizePhoto(f,function(url){if(url){pp.photo=url;persist();}else{ui.msg='Fotoğraf okunamadı.';}render();});
   }else if(el.getAttribute('data-chg')==='num'){
     var pn=player(el.getAttribute('data-id')),nv=el.value===''?NaN:Math.floor(Number(el.value));
     if(pn){
@@ -790,6 +844,20 @@ document.addEventListener('change',function(e){
       ui.pick=null;render();
     }
   }
+});
+
+document.addEventListener('submit',function(e){
+  if(e.target.id!=='pwform')return;
+  e.preventDefault();
+  var act=ui.pw&&ui.pw.act,val=$('#pwin').value;
+  if(!(window.crypto&&crypto.subtle)){ui.pwErr='Bu tarayıcıda şifre kontrolü yapılamıyor (https gerekli).';render();return;}
+  sha256hex(val).then(function(hx){
+    if(hx===PW_HASH){
+      try{sessionStorage.setItem('hd_ok',PW_HASH);}catch(x){}
+      ui.unlocked=true;ui.pw=null;ui.pwErr='';render();
+      var b=document.querySelector('[data-act="'+act+'"]');if(b)b.click();
+    }else{ui.pwErr='Şifre yanlış.';render();}
+  });
 });
 
 document.addEventListener('submit',function(e){
