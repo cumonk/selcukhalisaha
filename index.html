@@ -151,12 +151,17 @@ textarea{min-height:110px; font-family:ui-monospace,Menlo,monospace; font-size:1
 .lines div{min-width:0; overflow-wrap:anywhere}
 
 /* istatistik */
-.leaders{display:flex; flex-direction:column; gap:8px}
-.leader{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:10px 12px; display:flex; flex-direction:row; align-items:center; gap:12px; min-width:0}
-.leader .lmid{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px}
+.leaders{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+.leader{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:10px 6px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:6px; min-width:0}
+.leader .lmid{min-width:0; width:100%; display:flex; flex-direction:column; gap:2px; align-items:center}
 .leader .lmid span{overflow-wrap:anywhere}
-.leader .lnum{flex:none; text-align:right; display:flex; flex-direction:column; align-items:flex-end; line-height:1}
+.leader .lnum{display:flex; flex-direction:column; align-items:center; line-height:1}
 .leader .lnum small{font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-top:3px}
+@media (min-width:560px){
+  .leader{flex-direction:row; text-align:left; padding:10px 12px; gap:10px}
+  .leader .lmid{flex:1; align-items:flex-start; width:auto}
+  .leader .lnum{flex:none; align-items:flex-end}
+}
 .leader b{font-family:var(--font-display); font-size:34px; line-height:1}
 .leader span{overflow-wrap:anywhere; font-weight:600; font-size:13px}
 .lphoto{width:52px; height:52px; border-radius:50%; overflow:hidden; border:2.5px solid var(--gold); background:var(--bg); display:grid; place-items:center; font-family:var(--font-display); font-weight:800; font-size:22px; color:var(--muted); flex:none}
