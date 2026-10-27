@@ -309,7 +309,7 @@ var ui={tab:'mac',step:'kadro',view2:'saha',pick:null,week:defaultWeek(),wmsg:''
 function ratingOf(p,x){
   if(!x.n)return p.power;
   var winRate=(x.w+0.5*x.d)/x.n, ga=(x.g+x.a)/x.n, mvpRate=x.mvp/x.n;
-  var perf=1+9*clamp(0.3*winRate+0.5*clamp(ga/2,0,1)+0.2*clamp(mvpRate/0.4,0,1),0,1);
+  var perf=1+9*clamp(0.2*winRate+0.7*clamp(ga/2,0,1)+0.1*clamp(mvpRate/0.4,0,1),0,1);
   var k=Math.min(x.n,10);
   return (p.power*4+perf*k)/(4+k);
 }
