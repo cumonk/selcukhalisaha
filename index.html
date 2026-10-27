@@ -308,8 +308,9 @@ var ui={tab:'mac',step:'kadro',view2:'saha',pick:null,week:defaultWeek(),wmsg:''
 /* ---------- hesaplar ---------- */
 function ratingOf(p,x){
   if(!x.n)return p.power;
-  var winRate=(x.w+0.5*x.d)/x.n, ga=(x.g+x.a)/x.n, mvpRate=x.mvp/x.n;
-  var perf=1+9*clamp(0.2*winRate+0.7*clamp(ga/2,0,1)+0.1*clamp(mvpRate/0.4,0,1),0,1);
+  /* Hücum katkısı: gol 1, asist 0,8 puan; maç başına 2,5 katkı tam puan. Katkı arttıkça puan artmaya devam eder. */
+  var winRate=(x.w+0.5*x.d)/x.n, atk=clamp(((x.g+0.8*x.a)/x.n)/2.5,0,1), mvpRate=clamp(x.mvp/x.n/0.5,0,1);
+  var perf=1+9*clamp(0.6*atk+0.3*winRate+0.1*mvpRate,0,1);
   var k=Math.min(x.n,10);
   return (p.power*4+perf*k)/(4+k);
 }
@@ -669,7 +670,11 @@ function viewStats(st){
   var rows=S.players.map(function(p){return {p:p,x:st[p.id]};});
   var keys={puan:function(r){return r.x.rating;},gol:function(r){return r.x.g;},asist:function(r){return r.x.a;},mvp:function(r){return r.x.mvp;},galibiyet:function(r){return r.x.w;}};
   var f=keys[ui.sort];
-  rows.sort(function(a,b){return (f(b)-f(a))||(b.x.rating-a.x.rating);});
+  rows.sort(function(a,b){
+    var ra=Math.round(a.x.rating*10),rb=Math.round(b.x.rating*10);
+    if(ui.sort==='puan')return (rb-ra)||((b.x.g+b.x.a)-(a.x.g+a.x.a))||(b.x.g-a.x.g)||(b.x.w-a.x.w);
+    return (f(b)-f(a))||((b.x.g+b.x.a)-(a.x.g+a.x.a))||(rb-ra);
+  });
   function leader(label,fn,unit){
     var best=null;rows.forEach(function(r){if(fn(r)>0&&(!best||fn(r)>fn(best)))best=r;});
     var ph=best?(best.p.photo?'<div class="lphoto"><img src="'+esc(best.p.photo)+'" alt=""></div>':'<div class="lphoto none" aria-hidden="true">'+esc((best.p.name||'?').charAt(0).toUpperCase())+'</div>'):'<div class="lphoto none" aria-hidden="true">?</div>';
